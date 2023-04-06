@@ -9,7 +9,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 fn main() {
-    let input_one: Vec<f64> = generate_logic_wave(8, 100);
+    let input_one: Vec<f64> = generate_logic_wave(10, 100);
     let action_potential_one: Vec<f64> = action_potential_input_encoder([input_one].to_vec());
 
     plot_graph([action_potential_one.clone()].to_vec());
@@ -17,11 +17,46 @@ fn main() {
     let dendrite_one: Dendrite = Dendrite::new();
     dendrite_one.unit.as_ref().borrow_mut().potential = action_potential_one;
 
-    let input_two: Vec<f64> = generate_logic_wave(8, 100);
+    let input_two: Vec<f64> = generate_logic_wave(20, 100);
     let action_potential_two: Vec<f64> = action_potential_input_encoder([input_two].to_vec());
 
     let dendrite_two: Dendrite = Dendrite::new();
     dendrite_two.unit.as_ref().borrow_mut().potential = action_potential_two;
+
+    let synapse_one: Synapse = Synapse::new();
+
+    synapse_one
+        .unit
+        .as_ref()
+        .borrow_mut()
+        .inputs
+        .push(Rc::clone(&dendrite_one.unit));
+
+    let synapse_two: Synapse = Synapse::new();
+    synapse_two
+        .unit
+        .as_ref()
+        .borrow_mut()
+        .inputs
+        .push(Rc::clone(&dendrite_two.unit));
+
+    let mut dendrite_three: Dendrite = Dendrite::new();
+
+    dendrite_three
+        .unit
+        .as_ref()
+        .borrow_mut()
+        .inputs
+        .push(Rc::clone(&synapse_one.unit));
+
+    let mut dendrite_four: Dendrite = Dendrite::new();
+
+    dendrite_four
+        .unit
+        .as_ref()
+        .borrow_mut()
+        .inputs
+        .push(Rc::clone(&synapse_two.unit));
 
     let mut neuron_one: Neuron = Neuron::new();
 
@@ -30,18 +65,27 @@ fn main() {
         .as_ref()
         .borrow_mut()
         .inputs
-        .push(dendrite_one);
+        .push(Rc::clone(&dendrite_three.unit));
 
-    // neuron_one
-    //     .unit
-    //     .as_ref()
-    //     .borrow_mut()
-    //     .inputs
-    //     .push(dendrite_two);
+    neuron_one
+        .unit
+        .as_ref()
+        .borrow_mut()
+        .inputs
+        .push(Rc::clone(&dendrite_four.unit));
+
     for time in 0..100 {
+        synapse_one.compute(time);
+        synapse_two.compute(time);
+        dendrite_three.compute(time);
+        dendrite_four.compute(time);
         neuron_one.compute(time);
-        // println!("{:?}", neuron_one);
     }
+
+    // let mut plot = Plot::new();
+    // let trace = Scatter::new((0..out.len()).collect::<Vec<usize>>(), out);
+    // plot.add_trace(trace);
+    // plot.write_html("out.html");
 
     neuron_one.plot();
 }
@@ -60,14 +104,14 @@ fn action_potential_input_encoder(input_signals: Vec<Vec<f64>>) -> Vec<f64> {
 
         if activated == true {
             let new_activation = Instant::now();
-            if new_activation.duration_since(activation).as_secs_f64() < 0.03 {
-                potential += 47.5;
+            if new_activation.duration_since(activation).as_secs_f64() < 0.02 {
+                potential = 40.0;
             }
-            if new_activation.duration_since(activation).as_secs_f64() > 0.03
-                && new_activation.duration_since(activation).as_secs_f64() < 0.06
+            if new_activation.duration_since(activation).as_secs_f64() >= 0.02
+                && new_activation.duration_since(activation).as_secs_f64() < 0.04
             {
-                potential -= 40.0;
-            } else if new_activation.duration_since(activation).as_secs_f64() > 0.07 {
+                potential -= 60.0;
+            } else if new_activation.duration_since(activation).as_secs_f64() >= 0.04 {
                 refract = true;
                 activated = false;
                 reft = Instant::now();
